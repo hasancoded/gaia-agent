@@ -27,6 +27,45 @@ The system follows a modular architecture with clear separation between presenta
 
 ```mermaid
 graph TB
+    subgraph Client["Client Layer"]
+        UI["Gradio Web Interface<br/>(app.py)"]
+    end
+
+    subgraph Orchestration["Orchestration Layer"]
+        Agent["GAIA Agent<br/>(agent.py)"]
+        APIClient["GAIA API Client<br/>(gaia_client.py)"]
+    end
+
+    subgraph Tools["Tool Layer"]
+        Search["Web Search Tool<br/>(Tavily Integration)"]
+        FileReader["File Reader Tool<br/>(File Processing)"]
+        Calculator["Calculator Tool<br/>(Math Evaluation)"]
+    end
+
+    subgraph External["External Services"]
+        HF["Hugging Face<br/>Inference API"]
+        GAIA["GAIA Benchmark<br/>API"]
+        TavilyAPI["Tavily<br/>Search API"]
+    end
+
+    subgraph Processing["Data Processing"]
+        Pandas["Pandas<br/>(Excel/CSV)"]
+    end
+
+    UI -->|User Query| Agent
+    UI -->|Fetch Questions| APIClient
+
+    Agent -->|LLM Inference| HF
+    Agent -->|Tool Invocation| Search
+    Agent -->|Tool Invocation| FileReader
+    Agent -->|Tool Invocation| Calculator
+
+    APIClient -->|HTTP Requests| GAIA
+    Search -->|Search Query| TavilyAPI
+    FileReader -->|Download File| GAIA
+    FileReader -->|Parse Data| Pandas
+
+    HF -->|Response| Agent
     GAIA -->|Questions/Files| APIClient
     TavilyAPI -->|Search Results| Search
 
@@ -39,8 +78,6 @@ graph TB
     style GAIA fill:#f3e5f5
     style TavilyAPI fill:#f3e5f5
 ```
-
-</details>
 
 ### Component Overview
 
