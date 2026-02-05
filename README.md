@@ -28,47 +28,47 @@ The system follows a modular architecture with clear separation between presenta
 ```mermaid
 flowchart LR
     %% Client Layer
-    UI["🖥️ Gradio Interface<br/><small>app.py</small>"]
+    UI["Gradio Interface<br/><i>app.py</i>"]
 
     %% Orchestration Layer
-    Agent["🤖 GAIA Agent<br/><small>agent.py</small>"]
-    Client["📡 API Client<br/><small>gaia_client.py</small>"]
+    Agent["GAIA Agent<br/><i>agent.py</i>"]
+    Client["API Client<br/><i>gaia_client.py</i>"]
 
     %% Tool Layer
-    Search["🔍 Web Search<br/><small>Tavily</small>"]
-    FileReader["📄 File Reader<br/><small>Excel/CSV/Text</small>"]
-    Calculator["🧮 Calculator<br/><small>Math Eval</small>"]
+    Search["Web Search<br/><i>Tavily</i>"]
+    FileReader["File Reader<br/><i>Excel/CSV/Text</i>"]
+    Calculator["Calculator<br/><i>Math Eval</i>"]
 
     %% External Services
-    HF["⚡ HF Inference API<br/><small>Kimi-K2</small>"]
-    GAIA["🎯 GAIA Benchmark<br/><small>Questions & Eval</small>"]
-    Tavily["🌐 Tavily API<br/><small>Search Engine</small>"]
+    HF["HF Inference API<br/><i>Kimi-K2</i>"]
+    GAIA["GAIA Benchmark<br/><i>Questions & Eval</i>"]
+    Tavily["Tavily API<br/><i>Search Engine</i>"]
 
     %% Primary Flow
-    UI -->|"1. User Query"| Agent
-    Agent -->|"2. LLM Request"| HF
-    HF -->|"3. Response"| Agent
-    Agent -->|"4. Answer"| UI
+    UI -->|User Query| Agent
+    Agent -->|LLM Request| HF
+    HF -->|Response| Agent
+    Agent -->|Answer| UI
 
     %% Tool Orchestration
-    Agent -.->|"invoke"| Search
-    Agent -.->|"invoke"| FileReader
-    Agent -.->|"invoke"| Calculator
+    Agent -.->|Invoke| Search
+    Agent -.->|Invoke| FileReader
+    Agent -.->|Invoke| Calculator
 
     %% Tool-Service Connections
-    Search -->|"query"| Tavily
-    Tavily -->|"results"| Search
+    Search -->|Query| Tavily
+    Tavily -->|Results| Search
 
-    FileReader -->|"download"| GAIA
-    GAIA -->|"file data"| FileReader
+    FileReader -->|Download| GAIA
+    GAIA -->|File Data| FileReader
 
     %% API Client Flow
-    UI -->|"fetch/submit"| Client
-    Client <-->|"HTTP"| GAIA
+    UI -->|Fetch/Submit| Client
+    Client <-->|HTTP| GAIA
 
     %% Styling
-    classDef clientStyle fill:#e3f2fd,stroke:#1976d2,stroke-width:3px,color:#000
-    classDef orchestrationStyle fill:#fff3e0,stroke:#f57c00,stroke-width:3px,color:#000
+    classDef clientStyle fill:#e3f2fd,stroke:#1976d2,stroke-width:3px,color:#000,font-weight:bold
+    classDef orchestrationStyle fill:#fff3e0,stroke:#f57c00,stroke-width:3px,color:#000,font-weight:bold
     classDef toolStyle fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,color:#000
     classDef externalStyle fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000
 
