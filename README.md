@@ -1,6 +1,12 @@
 # GAIA Agent
 
+[![HF Space](https://img.shields.io/badge/🤗%20Hugging%20Face-Space-blue)](https://huggingface.co/spaces/hasancoded/gaia-agent)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 AI agent for the [GAIA benchmark](https://huggingface.co/gaia-benchmark) using [Hugging Face Inference API](https://huggingface.co/inference-api) with multi-tool capabilities including web search, file processing, and mathematical calculations.
+
+**🚀 Live Demo:** [huggingface.co/spaces/hasancoded/gaia-agent](https://huggingface.co/spaces/hasancoded/gaia-agent)
 
 ## Features
 
