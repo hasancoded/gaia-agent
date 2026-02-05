@@ -163,7 +163,7 @@ If you're running locally:
             reasoning_steps.append("✓ File processing completed")
         
         # Step 3: Generate answer using GAIA format
-        print("  🧠 Generating answer with Gemini...")
+        print("  🤖 Generating answer with HF Inference API...")
         answer, answer_reasoning = self._generate_answer_gaia_format(
             question_text, 
             context
@@ -187,9 +187,11 @@ If you're running locally:
         # Keywords that strongly suggest current/factual info needed
         search_keywords = [
             "current", "latest", "recent", "today", "now", "2024", "2025", "2026",
-            "who is", "what is", "when did", "where is", "how many",
+            "who is", "what is", "when did", "where is", "how many", "where were",
             "population", "price", "cost", "president", "CEO", "capital",
-            "located", "founded", "born", "died", "released", "published"
+            "located", "founded", "born", "died", "released", "published",
+            "paper", "study", "research", "article", "journal", "publication",
+            "described by", "deposited", "specimens", "author", "cited"
         ]
         
         question_lower = question.lower()
@@ -210,22 +212,23 @@ If you're running locally:
     
     def _generate_search_query(self, question):
         """Generate an effective search query from the question"""
-        prompt = f"""Generate a concise, effective web search query to answer this question.
-Return ONLY the search query, nothing else.
-
-Question: {question}
-
-Search query:"""
-
-        try:
-            response = self.model.generate_content(prompt)
-            query = response.text.strip()
-            print(f"      Generated query: {query}")
-            return query
-        except Exception as e:
-            print(f"      ⚠️ Error generating search query: {e}")
-            # Fallback: use first 10 words of question
-            return " ".join(question.split()[:10])
+        # Extract key terms from the question for search
+        # Remove common question words and focus on content
+        stop_words = {'the', 'a', 'an', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'just', 'give', 'me', 'without'}
+        words = question.split()
+        
+        # Keep important words (capitalized names, numbers, key terms)
+        key_terms = []
+        for word in words:
+            clean_word = word.strip('.,?!').lower()
+            # Keep if: capitalized (proper noun), number, or not a stop word
+            if word[0].isupper() or clean_word.isdigit() or clean_word not in stop_words:
+                key_terms.append(word.strip('.,?!'))
+        
+        # Use first 12 key terms for search query
+        query = " ".join(key_terms[:12])
+        print(f"      🔍 Search query: {query}")
+        return query
     
     def _generate_answer_gaia_format(self, question, context=""):
         """
