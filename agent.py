@@ -20,7 +20,35 @@ class GAIAAgent:
         # Get HF API token from environment
         self.api_token = os.environ.get("HF_API_TOKEN")
         if not self.api_token:
-            raise ValueError("ERROR: HF_API_TOKEN not found in environment variables")
+            error_msg = """
+╔════════════════════════════════════════════════════════════════════╗
+║  ERROR: HF_API_TOKEN not found in environment variables            ║
+╚════════════════════════════════════════════════════════════════════╝
+
+If you're running this on Hugging Face Spaces:
+
+1. Go to your Space Settings (⚙️ icon at top right)
+2. Scroll down to "Repository secrets"
+3. Click "Add a secret"
+4. Add the following secrets:
+   
+   Name: HF_API_TOKEN
+   Value: Your Hugging Face API token from https://huggingface.co/settings/tokens
+   
+   Name: TAVILY_API_KEY
+   Value: Your Tavily API key from https://tavily.com/
+   
+   Name: GAIA_API_URL
+   Value: https://agents-course-unit4-scoring.hf.space
+
+5. Click "Save" for each secret
+6. Restart your Space (Settings → Factory reboot)
+
+If you're running locally:
+- Make sure you have a .env file with HF_API_TOKEN set
+- Or set the environment variable: export HF_API_TOKEN=your_token_here
+"""
+            raise ValueError(error_msg)
         
         # Initialize HF Inference Client
         self.client = InferenceClient(token=self.api_token)
@@ -37,13 +65,14 @@ class GAIAAgent:
         
         print(f"[INFO] GAIA Agent initialized with HF Inference API ({self.model_name})")
     
-    def answer_question(self, question_text, task_id=None):
+    def answer_question(self, question_text, task_id=None, file_name=None):
         """
         Answer a GAIA question with reasoning trace
         
         Args:
             question_text: The question to answer
             task_id: Optional task ID (if question has associated files)
+            file_name: Optional file name associated with the question
             
         Returns:
             tuple: (answer, reasoning_trace)
@@ -80,40 +109,56 @@ class GAIAAgent:
         
         if needs_file and "file_reader" in self.tools:
             print("  [FILE] Reading associated file...")
-            file_content = self.tools["file_reader"].read_file(task_id)
+            file_content = self.tools["file_reader"].read_file(task_id, file_name)
             
             # Try to process the file content
             if isinstance(file_content, bytes) and len(file_content) > 0:
-                # Check if it's an error message
+                # Check if it's an error message (JSON response)
                 try:
                     error_check = file_content.decode('utf-8', errors='ignore')
-                    if 'Failed to download' in error_check or 'Error' in error_check:
-                        print(f"      [WARN] File download issue: {error_check}")
-                        context += f"\n\nNote: File could not be downloaded. {error_check}\n"
+                    if 'detail' in error_check or 'Failed to download' in error_check or 'Error' in error_check:
+                        print(f"      [WARN] File download issue: {error_check[:100]}")
+                        context += f"\n\nNote: The associated file could not be downloaded from the API. The agent will attempt to answer based on the question text alone. If the question requires viewing an image or reading a specific file, the answer may be incomplete.\n"
+                        reasoning_steps.append("⚠ File unavailable - will attempt to answer without it")
                     else:
-                        # Try to process as Excel file
-                        if task_id:
+                        # Try to process as Excel file first
+                        try:
+                            import pandas as pd
+                            import io
+                            
+                            # Try to read as Excel
+                            df = pd.read_excel(io.BytesIO(file_content))
+                            excel_summary = f"Excel file contents (first 50 rows):\n{df.head(50).to_string()}\n\nColumn names: {list(df.columns)}\nTotal rows: {len(df)}"
+                            context += f"\n\nFile Content:\n{excel_summary}\n"
+                            reasoning_steps.append("✓ Excel file processed successfully")
+                            print(f"      ✓ Excel file processed: {len(df)} rows, {len(df.columns)} columns")
+                        except Exception as excel_error:
+                            # Try as CSV
                             try:
                                 import pandas as pd
                                 import io
-                                
-                                # Try to read as Excel
-                                df = pd.read_excel(io.BytesIO(file_content))
-                                excel_summary = f"Excel file contents (first 50 rows):\n{df.head(50).to_string()}\n\nColumn names: {list(df.columns)}\nTotal rows: {len(df)}"
-                                context += f"\n\nFile Content:\n{excel_summary}\n"
-                                reasoning_steps.append("✓ Excel file processed successfully")
-                                print(f"      ✓ Excel file processed: {len(df)} rows, {len(df.columns)} columns")
-                            except Exception as excel_error:
+                                df = pd.read_csv(io.BytesIO(file_content))
+                                csv_summary = f"CSV file contents (first 50 rows):\n{df.head(50).to_string()}\n\nColumn names: {list(df.columns)}\nTotal rows: {len(df)}"
+                                context += f"\n\nFile Content:\n{csv_summary}\n"
+                                reasoning_steps.append("✓ CSV file processed successfully")
+                                print(f"      ✓ CSV file processed: {len(df)} rows, {len(df.columns)} columns")
+                            except:
                                 # Fall back to text interpretation
                                 file_text = file_content.decode('utf-8', errors='ignore')[:2000]
                                 context += f"\n\nFile Content (text interpretation):\n{file_text}\n"
-                                reasoning_steps.append(f"✓ File processed as text (Excel parsing failed: {excel_error})")
+                                reasoning_steps.append(f"✓ File processed as text")
                 except Exception as e:
                     context += f"\n\nFile: [Binary file, {len(file_content)} bytes - could not parse]\n"
                     reasoning_steps.append(f"✓ File downloaded but could not be parsed: {e}")
             else:
-                context += "\n\nNote: File could not be retrieved.\n"
-                reasoning_steps.append("✗ File could not be retrieved")
+                # File download failed - add graceful message
+                file_notice = f"\n\nNote: The file associated with this question (task_id: {task_id}"
+                if file_name:
+                    file_notice += f", file_name: {file_name}"
+                file_notice += ") could not be retrieved from the API. The agent will attempt to answer based on the question text alone. If the question specifically requires analyzing an image, spreadsheet, or other file content, the answer may indicate that the file is unavailable.\n"
+                context += file_notice
+                reasoning_steps.append("⚠ File could not be retrieved - answering without file context")
+                print("      ⚠ File unavailable - will attempt to answer without it")
             
             reasoning_steps.append("✓ File processing completed")
         

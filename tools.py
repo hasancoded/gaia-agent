@@ -63,19 +63,23 @@ class FileReaderTool:
     def __init__(self, gaia_api_url):
         self.api_url = gaia_api_url
     
-    def read_file(self, task_id):
+    def read_file(self, task_id, file_name=None):
         """
         Download and read a file associated with a GAIA question
         
         Args:
             task_id: The ID of the GAIA task
+            file_name: Optional file name from question data
             
         Returns:
             File content as bytes
         """
         # GAIA API uses /files/{task_id} endpoint
-        # It returns HTTP 200 with JSON error if file doesn't exist
+        # The file_name is also important for some APIs
         url = f"{self.api_url}/files/{task_id}"
+        
+        if file_name:
+            print(f"      File name: {file_name}")
         
         try:
             print(f"      Downloading from: {url}")
