@@ -26,57 +26,56 @@ AI agent for the [GAIA benchmark](https://huggingface.co/gaia-benchmark) using [
 The system follows a modular architecture with clear separation between presentation, orchestration, and service layers.
 
 ```mermaid
-graph TB
-    subgraph Client["Client Layer"]
-        UI["Gradio Web Interface<br/>(app.py)"]
-    end
+flowchart LR
+    %% Client Layer
+    UI["🖥️ Gradio Interface<br/><small>app.py</small>"]
 
-    subgraph Orchestration["Orchestration Layer"]
-        Agent["GAIA Agent<br/>(agent.py)"]
-        APIClient["GAIA API Client<br/>(gaia_client.py)"]
-    end
+    %% Orchestration Layer
+    Agent["🤖 GAIA Agent<br/><small>agent.py</small>"]
+    Client["📡 API Client<br/><small>gaia_client.py</small>"]
 
-    subgraph Tools["Tool Layer"]
-        Search["Web Search Tool<br/>(Tavily Integration)"]
-        FileReader["File Reader Tool<br/>(File Processing)"]
-        Calculator["Calculator Tool<br/>(Math Evaluation)"]
-    end
+    %% Tool Layer
+    Search["🔍 Web Search<br/><small>Tavily</small>"]
+    FileReader["📄 File Reader<br/><small>Excel/CSV/Text</small>"]
+    Calculator["🧮 Calculator<br/><small>Math Eval</small>"]
 
-    subgraph External["External Services"]
-        HF["Hugging Face<br/>Inference API"]
-        GAIA["GAIA Benchmark<br/>API"]
-        TavilyAPI["Tavily<br/>Search API"]
-    end
+    %% External Services
+    HF["⚡ HF Inference API<br/><small>Kimi-K2</small>"]
+    GAIA["🎯 GAIA Benchmark<br/><small>Questions & Eval</small>"]
+    Tavily["🌐 Tavily API<br/><small>Search Engine</small>"]
 
-    subgraph Processing["Data Processing"]
-        Pandas["Pandas<br/>(Excel/CSV)"]
-    end
+    %% Primary Flow
+    UI -->|"1. User Query"| Agent
+    Agent -->|"2. LLM Request"| HF
+    HF -->|"3. Response"| Agent
+    Agent -->|"4. Answer"| UI
 
-    UI -->|User Query| Agent
-    UI -->|Fetch Questions| APIClient
+    %% Tool Orchestration
+    Agent -.->|"invoke"| Search
+    Agent -.->|"invoke"| FileReader
+    Agent -.->|"invoke"| Calculator
 
-    Agent -->|LLM Inference| HF
-    Agent -->|Tool Invocation| Search
-    Agent -->|Tool Invocation| FileReader
-    Agent -->|Tool Invocation| Calculator
+    %% Tool-Service Connections
+    Search -->|"query"| Tavily
+    Tavily -->|"results"| Search
 
-    APIClient -->|HTTP Requests| GAIA
-    Search -->|Search Query| TavilyAPI
-    FileReader -->|Download File| GAIA
-    FileReader -->|Parse Data| Pandas
+    FileReader -->|"download"| GAIA
+    GAIA -->|"file data"| FileReader
 
-    HF -->|Response| Agent
-    GAIA -->|Questions/Files| APIClient
-    TavilyAPI -->|Search Results| Search
+    %% API Client Flow
+    UI -->|"fetch/submit"| Client
+    Client <-->|"HTTP"| GAIA
 
-    Agent -->|Answer + Reasoning| UI
-    APIClient -->|Submission| GAIA
+    %% Styling
+    classDef clientStyle fill:#e3f2fd,stroke:#1976d2,stroke-width:3px,color:#000
+    classDef orchestrationStyle fill:#fff3e0,stroke:#f57c00,stroke-width:3px,color:#000
+    classDef toolStyle fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,color:#000
+    classDef externalStyle fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000
 
-    style UI fill:#e1f5ff
-    style Agent fill:#fff3e0
-    style HF fill:#f3e5f5
-    style GAIA fill:#f3e5f5
-    style TavilyAPI fill:#f3e5f5
+    class UI clientStyle
+    class Agent,Client orchestrationStyle
+    class Search,FileReader,Calculator toolStyle
+    class HF,GAIA,Tavily externalStyle
 ```
 
 ### Component Overview
