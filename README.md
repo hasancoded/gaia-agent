@@ -4,13 +4,14 @@
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-AI agent for the [GAIA benchmark](https://huggingface.co/gaia-benchmark) using [Hugging Face Inference API](https://huggingface.co/inference-api) with multi-tool capabilities including web search, file processing, and mathematical calculations.
+AI agent for the [GAIA benchmark](https://huggingface.co/gaia-benchmark) using [Hugging Face Inference API](https://huggingface.co/inference-api) (Llama-3.1-70B) with automatic Groq fallback (Llama-3.3-70B) and multi-tool capabilities including web search, file processing, and mathematical calculations.
 
 **🚀 Live Demo:** [huggingface.co/spaces/hasancoded/gaia-agent](https://huggingface.co/spaces/hasancoded/gaia-agent)
 
 ## Features
 
-- Answer GAIA benchmark questions using Hugging Face Inference API
+- Answer GAIA benchmark questions using Hugging Face Inference API (Llama-3.1-70B)
+- **Automatic fallback** to Groq API (Llama-3.3-70B) for reliability
 - Web search integration via [Tavily API](https://tavily.com/)
 - File reading and processing (Excel, CSV, text files)
 - Mathematical calculations
@@ -21,7 +22,8 @@ AI agent for the [GAIA benchmark](https://huggingface.co/gaia-benchmark) using [
 ## Tech Stack
 
 - **[Python](https://www.python.org/) 3.8+**
-- **[Hugging Face Inference API](https://huggingface.co/inference-api)** - LLM inference (Kimi-K2, Llama 3.1, Qwen 2.5)
+- **[Hugging Face Inference API](https://huggingface.co/inference-api)** - Primary LLM inference (Llama-3.1-70B)
+- **[Groq](https://groq.com/)** - Fallback LLM inference (Llama-3.3-70B)
 - **[Gradio](https://gradio.app/)** - Web interface
 - **[Tavily](https://tavily.com/)** - Web search
 - **[Pandas](https://pandas.pydata.org/)** - Data processing
@@ -46,7 +48,8 @@ flowchart LR
     Calculator["Calculator<br/><i>Math Eval</i>"]
 
     %% External Services
-    HF["HF Inference API<br/><i>Kimi-K2</i>"]
+    HF["HF Inference API<br/><i>Llama-3.1-70B</i>"]
+    Groq["Groq API<br/><i>Llama-3.3-70B</i>"]
     GAIA["GAIA Benchmark<br/><i>Questions & Eval</i>"]
     Tavily["Tavily API<br/><i>Search Engine</i>"]
 
@@ -54,6 +57,8 @@ flowchart LR
     UI -->|User Query| Agent
     Agent -->|LLM Request| HF
     HF -->|Response| Agent
+    Agent -.->|Fallback on Error| Groq
+    Groq -.->|Response| Agent
     Agent -->|Answer| UI
 
     %% Tool Orchestration
@@ -81,7 +86,7 @@ flowchart LR
     class UI clientStyle
     class Agent,Client orchestrationStyle
     class Search,FileReader,Calculator toolStyle
-    class HF,GAIA,Tavily externalStyle
+    class HF,Groq,GAIA,Tavily externalStyle
 ```
 
 ### Component Overview
@@ -104,7 +109,8 @@ flowchart LR
 
 #### External Services
 
-- **[Hugging Face Inference API](https://huggingface.co/inference-api)**: LLM inference using Kimi-K2 or Llama models
+- **[Hugging Face Inference API](https://huggingface.co/inference-api)**: Primary LLM inference using Llama-3.1-70B
+- **[Groq API](https://groq.com/)**: Fallback LLM inference using Llama-3.3-70B
 - **[GAIA Benchmark API](https://huggingface.co/gaia-benchmark)**: Question retrieval and answer submission
 - **[Tavily Search API](https://tavily.com/)**: Web search capabilities
 
@@ -122,6 +128,7 @@ flowchart LR
 - [Python](https://www.python.org/) 3.8 or higher
 - pip package manager
 - [Hugging Face API token](https://huggingface.co/settings/tokens)
+- [Groq API key](https://console.groq.com/keys) (optional, for fallback)
 - [Tavily API key](https://tavily.com/)
 - GAIA API access
 
@@ -162,6 +169,7 @@ Edit [`.env`](.env) and add your API credentials:
 
 ```bash
 HF_API_TOKEN=your_huggingface_token
+GROQ_API_KEY=your_groq_key  # Optional: for automatic fallback
 TAVILY_API_KEY=your_tavily_key
 GAIA_API_URL=https://agents-course-unit4-scoring.hf.space
 ```
@@ -169,6 +177,7 @@ GAIA_API_URL=https://agents-course-unit4-scoring.hf.space
 **Get API Keys:**
 
 - **HF_API_TOKEN**: [Hugging Face Settings](https://huggingface.co/settings/tokens)
+- **GROQ_API_KEY**: [Groq Console](https://console.groq.com/keys) (optional)
 - **TAVILY_API_KEY**: [Tavily Dashboard](https://tavily.com/)
 
 ## Usage
@@ -257,24 +266,26 @@ result = calc_tool.calculate(expression)
 
 ### Environment Variables
 
-| Variable         | Required | Description            | Get It                                              |
-| ---------------- | -------- | ---------------------- | --------------------------------------------------- |
-| `HF_API_TOKEN`   | Yes      | Hugging Face API token | [Get Token](https://huggingface.co/settings/tokens) |
-| `TAVILY_API_KEY` | Yes      | Tavily search API key  | [Get Key](https://tavily.com/)                      |
-| `GAIA_API_URL`   | Yes      | GAIA benchmark API URL | Provided by organizers                              |
+| Variable         | Required | Description             | Get It                                              |
+| ---------------- | -------- | ----------------------- | --------------------------------------------------- |
+| `HF_API_TOKEN`   | Yes      | Hugging Face API token  | [Get Token](https://huggingface.co/settings/tokens) |
+| `GROQ_API_KEY`   | No       | Groq API key (fallback) | [Get Key](https://console.groq.com/keys)            |
+| `TAVILY_API_KEY` | Yes      | Tavily search API key   | [Get Key](https://tavily.com/)                      |
+| `GAIA_API_URL`   | Yes      | GAIA benchmark API URL  | Provided by organizers                              |
 
 ### Model Selection
 
-Edit [`agent.py`](agent.py) to change the HF model:
+Edit [`agent.py`](agent.py) to change the models:
 
 ```python
-# Available models:
-# - moonshotai/Kimi-K2-Instruct-0905 (excellent reasoning)
-# - meta-llama/Llama-3.1-70B-Instruct (fastest)
-# - Qwen/Qwen2.5-72B-Instruct (complex tasks)
-# - meta-llama/Llama-3.1-8B-Instruct (balanced)
+# Current configuration:
+self.model_name = "meta-llama/Llama-3.1-70B-Instruct"  # Primary (HF)
+self.groq_model = "llama-3.3-70b-versatile"            # Fallback (Groq)
 
-self.model_name = "moonshotai/Kimi-K2-Instruct-0905"
+# Other available HF models:
+# - moonshotai/Kimi-K2-Instruct-0905 (excellent reasoning)
+# - Qwen/Qwen2.5-72B-Instruct (complex tasks)
+# - meta-llama/Llama-3.1-8B-Instruct (smaller, faster)
 ```
 
 ## Troubleshooting

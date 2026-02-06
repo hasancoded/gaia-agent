@@ -1,6 +1,6 @@
 """
 GAIA Agent Application
-A Gradio-based interface for the GAIA benchmark challenge using Hugging Face Inference API.
+A Gradio-based interface for the GAIA benchmark challenge using Hugging Face Inference API (Llama-3.1-70B) with automatic Groq fallback (Llama-3.3-70B).
 
 This application allows users to:
 - Test the agent on random questions
@@ -179,6 +179,18 @@ def generate_submission_file():
                 })
                 successful += 1
                 print(f"[OK] Answer: {answer}")
+            except RuntimeError as e:
+                # API credit depletion - stop processing
+                error_msg = str(e)
+                print(f"\\n[CRITICAL] {error_msg}")
+                print(f"[INFO] Stopping early after {i+1} questions due to API credit exhaustion.")
+                results.append({
+                    "task_id": task_id,
+                    "model_answer": "API credits exhausted",
+                    "reasoning_trace": error_msg
+                })
+                failed += 1
+                break  # Stop processing more questions
             except Exception as e:
                 print(f"[ERROR] Error processing question: {e}")
                 results.append({
@@ -247,6 +259,11 @@ def check_config():
         status += f"[OK] GAIA_API_URL: {os.environ.get('GAIA_API_URL')}\n"
     else:
         status += "[ERROR] GAIA_API_URL: NOT FOUND\n"
+        
+    if os.environ.get("GROQ_API_KEY"):
+        status += "[OK] GROQ_API_KEY: Configured (Fallback Enabled)\n"
+    else:
+        status += "[WARN] GROQ_API_KEY: NOT FOUND (Fallback Disabled)\n"
     
     return status
 
@@ -259,14 +276,14 @@ with gr.Blocks(title="GAIA Agent - HF Inference API") as demo:
     gr.Markdown("""
     # GAIA Agent - Hugging Face Inference API
     
-    AI agent for the GAIA benchmark challenge using Hugging Face Inference API.
+    AI agent for the GAIA benchmark challenge using Hugging Face Inference API (Llama-3.1-70B) with automatic Groq fallback (Llama-3.3-70B).
     
     ## Goal
     Generate a submission file for the [GAIA Leaderboard](https://huggingface.co/spaces/gaia-benchmark/leaderboard)
     
     ## Submission Requirements:
     - **Agent name**: e.g., "MyHFAgent-v1"
-    - **Model family**: "Hugging Face Inference API (Kimi-K2)"
+    - **Model family**: "Llama-3.1-70B / Llama-3.3-70B (Hybrid)"
     - **System prompt**: See Submission Info tab
     - **URL**: Your HuggingFace Space URL
     - **Organisation**: Your name or organization
@@ -347,7 +364,8 @@ with gr.Blocks(title="GAIA Agent - HF Inference API") as demo:
         ```
         
         ### Model Information:
-        - **Model**: Hugging Face Inference API (moonshotai/Kimi-K2-Instruct-0905)
+        - **Primary Model**: Hugging Face Inference API (meta-llama/Llama-3.1-70B-Instruct)
+        - **Fallback Model**: Groq API (llama-3.3-70b-versatile)
         - **Tools**: Web Search (Tavily), File Reader, Calculator
         - **Framework**: Custom agent implementation
         
@@ -360,7 +378,7 @@ with gr.Blocks(title="GAIA Agent - HF Inference API") as demo:
         5. **Click** "Submit a new model for evaluation"
         6. **Fill in** the form:
            - Agent name: `[YourName]-HFAgent-v1`
-           - Model family: `Hugging Face Inference API (Kimi-K2)`
+           - Model family: `Llama-3.1-70B / Llama-3.3-70B (Hybrid)`
            - System prompt: Copy from above
            - URL: Your Space URL
            - Organisation: Your name
