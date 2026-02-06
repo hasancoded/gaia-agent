@@ -2,6 +2,11 @@ import os
 import re
 import string
 from huggingface_hub import InferenceClient
+try:
+    from groq import Groq
+    GROQ_AVAILABLE = True
+except ImportError:
+    GROQ_AVAILABLE = False
 
 
 class GAIAAgent:
@@ -41,6 +46,9 @@ If you're running this on Hugging Face Spaces:
    Name: GAIA_API_URL
    Value: https://agents-course-unit4-scoring.hf.space
 
+   Name: GROQ_API_KEY
+   Value: Your Groq API key from https://console.groq.com/keys
+
 5. Click "Save" for each secret
 6. Restart your Space (Settings → Factory reboot)
 
@@ -53,13 +61,21 @@ If you're running locally:
         # Initialize HF Inference Client
         self.client = InferenceClient(token=self.api_token)
         
+        # Initialize Groq Client
+        self.groq_api_key = os.environ.get("GROQ_API_KEY")
+        self.groq_client = None
+        if self.groq_api_key and GROQ_AVAILABLE:
+            self.groq_client = Groq(api_key=self.groq_api_key)
+            print("[INFO] Groq Client initialized (fallback enabled)")
+        
         # Model selection
         # Available models (tested and working):
         #   - moonshotai/Kimi-K2-Instruct-0905 (1.14s, excellent reasoning)
         #   - meta-llama/Llama-3.1-70B-Instruct (1.01s, fastest)
         #   - Qwen/Qwen2.5-72B-Instruct (1.17s, great for complex tasks)
         #   - meta-llama/Llama-3.1-8B-Instruct (1.20s, good balance)
-        self.model_name = "moonshotai/Kimi-K2-Instruct-0905"
+        self.model_name = "meta-llama/Llama-3.1-70B-Instruct"
+        self.groq_model = "llama-3.3-70b-versatile"
         
         self.tools = tools or {}
         
@@ -252,7 +268,8 @@ Remember: End your response with "FINAL ANSWER: [YOUR ANSWER]" following the for
 Remember: End your response with "FINAL ANSWER: [YOUR ANSWER]" following the formatting rules."""
         
         try:
-            # Use HF Inference API
+            # Try HF Inference API first
+            print(f"      Attempting with HF API ({self.model_name})...")
             response = self.client.chat_completion(
                 model=self.model_name,
                 messages=[
@@ -271,15 +288,61 @@ Remember: End your response with "FINAL ANSWER: [YOUR ANSWER]" following the for
                 answer = parts[-1].strip()
                 reasoning = parts[0].strip()
             else:
-                # Fallback if format not followed
                 answer = full_response.strip()
                 reasoning = "Direct answer provided"
             
             return answer, reasoning
             
         except Exception as e:
-            print(f"      [ERROR] Failed to generate answer: {e}")
-            return "Error generating answer", str(e)
+            error_str = str(e)
+            print(f"      [WARN] HF API failed: {error_str}")
+            
+            # Check if we should fallback to Groq
+            if self.groq_client:
+                print(f"      🔄 Switching to Groq API ({self.groq_model})...")
+                try:
+                    return self._generate_answer_groq(system_instruction, user_prompt)
+                except Exception as groq_e:
+                    print(f"      [ERROR] Groq API also failed: {groq_e}")
+                    # If both fail, re-raise original error or improved one
+            
+            # Check for credit depletion (402 Payment Required)
+            if "402" in error_str or "Payment Required" in error_str or "Credit balance is depleted" in error_str:
+                if not self.groq_client:
+                    raise RuntimeError(
+                        "HuggingFace API credits depleted. Please add credits to your HF account "
+                        "OR configure GROQ_API_KEY to use free fallback."
+                    )
+            
+            return "Error generating answer", error_str
+
+    def _generate_answer_groq(self, system_instruction, user_prompt):
+        """Generate answer using Groq API as fallback"""
+        completion = self.groq_client.chat.completions.create(
+            model=self.groq_model,
+            messages=[
+                {"role": "system", "content": system_instruction},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.7,
+            max_tokens=2000,
+            top_p=1,
+            stream=False,
+            stop=None,
+        )
+        
+        full_response = completion.choices[0].message.content
+        
+        # Extract final answer
+        if "FINAL ANSWER:" in full_response:
+            parts = full_response.split("FINAL ANSWER:")
+            answer = parts[-1].strip()
+            reasoning = parts[0].strip()
+        else:
+            answer = full_response.strip()
+            reasoning = "Direct answer provided"
+            
+        return answer, reasoning
     
     def _format_for_scorer(self, answer, question):
         """

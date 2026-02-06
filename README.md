@@ -1,6 +1,6 @@
 # GAIA Agent
 
-[![HF Space](https://img.shields.io/badge/Hugging%20Face-Space-blue)](https://huggingface.co/spaces/hasancoded/gaia-agent)
+[![HF Space](https://img.shields.io/badge/🤗%20Hugging%20Face-Space-blue)](https://huggingface.co/spaces/hasancoded/gaia-agent)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 

@@ -62,6 +62,7 @@ class FileReaderTool:
     
     def __init__(self, gaia_api_url):
         self.api_url = gaia_api_url
+        self._file_cache = {}  # Cache downloaded files
     
     def read_file(self, task_id, file_name=None):
         """
@@ -72,44 +73,78 @@ class FileReaderTool:
             file_name: Optional file name from question data
             
         Returns:
-            File content as bytes
+            File content as bytes, or None if download fails
         """
+        # Return cached file if available
+        if task_id in self._file_cache:
+            print(f"      ✓ Using cached file for {task_id}")
+            return self._file_cache[task_id]
+        
         # GAIA API uses /files/{task_id} endpoint
-        # The file_name is also important for some APIs
         url = f"{self.api_url}/files/{task_id}"
         
         if file_name:
             print(f"      File name: {file_name}")
         
-        try:
-            print(f"      Downloading from: {url}")
-            
-            response = requests.get(url, timeout=30)
-            
-            # Check if response is JSON error message
-            content_type = response.headers.get('Content-Type', '')
-            if 'application/json' in content_type:
-                try:
-                    error_data = response.json()
-                    if 'detail' in error_data:
-                        # API returned error in JSON format
-                        error_msg = error_data['detail']
-                        print(f"      ⚠️  {error_msg}")
-                        return None
-                except:
-                    pass
-            
-            # If we got here, it should be actual file content
-            if response.status_code == 200 and len(response.content) > 0:
-                print(f"      ✓ File downloaded successfully ({len(response.content)} bytes)")
-                return response.content
-            else:
-                print(f"      ✗ HTTP {response.status_code} - No file content")
-                return None
+        # Try downloading with retries
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                print(f"      Downloading from: {url}" + (f" (attempt {attempt + 1})" if attempt > 0 else ""))
                 
-        except Exception as e:
-            print(f"      ✗ Error: {str(e)}")
-            return None
+                response = requests.get(url, timeout=60)
+                
+                # Check HTTP status first
+                if response.status_code == 404:
+                    print(f"      ⚠️  File not found (404)")
+                    return None
+                
+                if response.status_code != 200:
+                    print(f"      ⚠️  HTTP {response.status_code}")
+                    if attempt < max_retries - 1:
+                        import time
+                        time.sleep(1)
+                        continue
+                    return None
+                
+                # Check for empty response
+                if len(response.content) == 0:
+                    print(f"      ⚠️  Empty response")
+                    return None
+                
+                # Check if response is JSON error message
+                content_type = response.headers.get('Content-Type', '')
+                if 'application/json' in content_type:
+                    try:
+                        error_data = response.json()
+                        if 'detail' in error_data:
+                            error_msg = error_data['detail']
+                            print(f"      ⚠️  API Error: {error_msg}")
+                            return None
+                    except:
+                        pass
+                
+                # Success - cache and return
+                print(f"      ✓ File downloaded successfully ({len(response.content)} bytes)")
+                self._file_cache[task_id] = response.content
+                return response.content
+                    
+            except requests.exceptions.Timeout:
+                print(f"      ⚠️  Download timed out")
+                if attempt < max_retries - 1:
+                    import time
+                    time.sleep(2)
+                    continue
+                return None
+            except Exception as e:
+                print(f"      ✗ Error: {str(e)}")
+                if attempt < max_retries - 1:
+                    import time
+                    time.sleep(1)
+                    continue
+                return None
+        
+        return None
 
 
 class CalculatorTool:
